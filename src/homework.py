@@ -3,6 +3,7 @@ from sklearn.cluster import KMeans
 from kneed import KneeLocator
 import warnings
 warnings.filterwarnings('ignore')
+import hnswlib
 
 def pairwise_distances(A, B):
     '''
@@ -53,6 +54,7 @@ class KNN:
         self.d = d
         self.k = k
         self.data = self.generate_vectors()
+        self.index = self.create_hnsw_index()
 
     def generate_vectors(self, n_clusters=4):
         """
@@ -71,23 +73,13 @@ class KNN:
 
         return np.array(vectors)
 
-    def get_best_k(self, vectors):
-        sse = []
-        k_values = range(2, int(np.log2(len(vectors))) + 1)
-        
-        for k in k_values:
-            kmeans = KMeans(n_clusters=k)
-            kmeans.fit(vectors)
-            sse.append(kmeans.inertia_)
-        
-        knee_locator = KneeLocator(k_values, sse, curve='convex', direction='decreasing')
-        return knee_locator.elbow
-
-    def cluster(self, vectors):
-        best_k = self.get_best_k(vectors)
-        kmeans = KMeans(n_clusters=best_k)
-        kmeans.fit(vectors)
-        return kmeans.labels_
+    def create_hnsw_index(self):
+        # 创建 HNSW 索引
+        index = hnswlib.Index(space='l2', dim=self.d)  # 使用 L2 距离
+        index.init_index(max_elements=self.n, ef_construction=200, M=16)  # 初始化索引
+        index.add_items(self.data, np.arange(self.n))  # 添加数据
+        index.set_ef(50)  # 设置查询时的 ef 值
+        return index
 
 
     def knn_search(self, query_vectors):
@@ -100,11 +92,10 @@ class KNN:
         nearest_vectors_list = []
 
         for query_vector in query_vectors:
-            distances = np.array([pairwise_distances(self.data[i], query_vector) for i in range(self.n)])  # 计算距离
-            nearest_indices = np.argsort(distances)[:self.k]  # 获取最近邻索引
-            nearest_vectors = self.data[nearest_indices]  # 获取最近邻向量
+            indices, distances = self.index.knn_query(query_vector, k=self.k)  # 使用 HNSW 查询最近邻
+            nearest_vectors = self.data[indices]  # 获取最近邻向量
             
-            nearest_indices_list.append(nearest_indices)
+            nearest_indices_list.append(indices)
             nearest_vectors_list.append(nearest_vectors)
 
         return nearest_indices_list, nearest_vectors_list
