@@ -1,6 +1,5 @@
 import numpy as np
 from sklearn.cluster import KMeans
-from kneed import KneeLocator
 import warnings
 warnings.filterwarnings('ignore')
 import hnswlib
@@ -29,12 +28,12 @@ def pairwise_distances_test(d):
     """
     A = np.random.rand(d)
     B = np.random.rand(d)
+    
 
     distances_manual = pairwise_distances(A, B)
     distances_numpy = pairwise_distances_numpy(A, B)
 
     error = abs(distances_manual - distances_numpy)
-    print("The functional test of task1")
     print("*"*20,"The functional test of task1","*"*20) 
     print(f"A: {A}")
     print(f"B: {B}")
@@ -165,7 +164,7 @@ def test_knn_performance(n, d, k):
     np.random.seed(123)  
 
     knn = KNN(n=n, d=d, k=k)  
-    query_vectors = np.random.rand(50, d)  
+    query_vectors = np.random.rand(100, d)  
     # HNSW
     start_time_1 = time.time()  
     nearest_neighbors_1, nearest_vectors_1 = knn.knn_search(query_vectors)  
@@ -182,12 +181,12 @@ def test_knn_performance(n, d, k):
 
 # 示例用法
 if __name__ == "__main__":
-    n = 1000
-    dim = 10 
+    n = 10000
+    dim = 64 
     k = 3
     # task1
-    pairwise_distances_test(dim)
-    # task2
-    test_knn_functionality(n,dim,k)
+    # pairwise_distances_test(dim)
+    # # task2
+    # test_knn_functionality(n,dim,k)
     
     test_knn_performance(n,dim,k)
