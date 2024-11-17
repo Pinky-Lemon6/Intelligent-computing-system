@@ -28,12 +28,14 @@ def pairwise_distances_test(d):
     distances_numpy = pairwise_distances_numpy(A, B)
 
     error = abs(distances_manual - distances_numpy)
-
+    print("The functional test of task1")
+    print("*"*20,"The functional test of task1","*"*20) 
     print(f"A: {A}")
     print(f"B: {B}")
     print(f"distances_manual: {distances_manual}")
     print(f"distances_numpy: {distances_numpy}")
     print(f"error: {error}")
+    print("*"*70) 
 
 
 
