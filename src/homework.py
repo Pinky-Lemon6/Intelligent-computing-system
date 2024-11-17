@@ -6,11 +6,11 @@ warnings.filterwarnings('ignore')
 import hnswlib
 import time
 
-
+# task1
 def pairwise_distances(A, B):
-    '''
+    """
     return the matriA of distances between the rows of A and the rows of B 
-    '''
+    """
     ret = 0
     for i in range(A.shape[0]):
         ret += np.square(A[i]-B[i])
@@ -18,15 +18,15 @@ def pairwise_distances(A, B):
     return distance
 
 def pairwise_distances_numpy(A, B):
-    '''
+    """
     directly call the method of calculating vector distance in numpy
-    '''
+    """
     return np.linalg.norm(A - B)
 
 def pairwise_distances_test(d):
-    '''
+    """
     test the function of pairwise_distances(A, B)
-    '''
+    """
     A = np.random.rand(d)
     B = np.random.rand(d)
 
@@ -43,13 +43,14 @@ def pairwise_distances_test(d):
     print(f"error: {error}")
     print("*"*70) 
 
-
+# task2
 class KNN:
     def __init__(self, n, d, k=1):
         """
         Initialize KNN class
         :param n: number of vectors
         :param d: vector dimension
+        :param k: number of neighbors
         """
         self.n = n
         self.d = d
@@ -59,9 +60,9 @@ class KNN:
 
     def generate_vectors(self, n_clusters=4):
         """
-        使用多元正态分布生成 n 个 d 维向量
-        :param n_clusters: 聚类数量
-        :return: 生成的向量
+        Generate n d-dimensional vectors using multivariate normal distribution
+        :param n_clusters: number of clusters
+        :return: generated vector
         """
         means = np.random.rand(n_clusters, self.d)  # 随机生成聚类中心
         covariances = [np.eye(self.d) for _ in range(n_clusters)]  # 使用单位矩阵作为协方差矩阵
@@ -82,12 +83,11 @@ class KNN:
         index.set_ef(50)  # 设置查询时的 ef 值
         return index
 
-
     def knn_search(self, query_vectors):
         """
-        针对一组查询向量返回最近邻
-        :param query_vectors: 查询向量，形状为 (m, d)
-        :return: 最近邻的索引和向量
+        Returns the nearest neighbor for a set of query vectors
+        :param query_vectors: query vectors, shape (m, d)
+        :return: the index and vector of the nearest neighbor
         """
         nearest_indices_list = []
         nearest_vectors_list = []
@@ -101,65 +101,93 @@ class KNN:
 
         return nearest_indices_list, nearest_vectors_list
     
-def test_knn_functionality():
-    """
-    功能测试：验证 KNN 类的正确性
-    """
-    np.random.seed(123)  # 设置随机种子以确保可重复性
-    n = 100  # 数据库中的向量数量
-    d = 10   # 向量维度
-    k = 3    # 最近邻数量
+    def kmeans_knn_search(self, query_vectors, n_clusters=5):
+        """
+        Use KMeans clustering followed by brute force search to find the nearest neighbors
+        :param query_vectors: query vectors, shape (m, d)
+        :param n_clusters: number of clusters
+        :return: the index and vector of the nearest neighbors
+        """
+        # 进行 KMeans 聚类
+        kmeans = KMeans(n_clusters=n_clusters)
+        kmeans.fit(self.data)
+        
+        nearest_indices_list = []
+        nearest_vectors_list = []
 
-    knn = KNN(n=n, d=d, k=k)  # 创建 KNN 实例
-    query_vectors = np.random.rand(5, d)  # 随机生成 5 个查询向量
+        for query_vector in query_vectors:
+            # 计算查询向量与每个聚类中心的距离
+            distances_to_centers = np.linalg.norm(kmeans.cluster_centers_ - query_vector, axis=1)
+            nearest_cluster_index = np.argmin(distances_to_centers)  # 找到最近的聚类中心
 
-    nearest_neighbors, nearest_vectors = knn.knn_search(query_vectors)  # 查询每个向量的最近邻
+            # 在最近的聚类中进行暴力搜索
+            cluster_indices = np.where(kmeans.labels_ == nearest_cluster_index)[0]
+            cluster_vectors = self.data[cluster_indices]
+            distances = np.array([pairwise_distances(cluster_vectors[i], query_vector) for i in range(len(cluster_vectors))])
+            nearest_indices = np.argsort(distances)[:self.k]  # 获取最近邻索引
+            
+            nearest_indices_list.append(cluster_indices[nearest_indices])
+            nearest_vectors_list.append(cluster_vectors[nearest_indices])
+
+        return nearest_indices_list, nearest_vectors_list
+    
+def test_knn_functionality(n, d, k):
+    """
+    functional testing: verifying the correctness of the KNN class
+    """
+    np.random.seed(123)  
+    knn = KNN(n=n, d=d, k=k)  
+    query_vectors = np.random.rand(5, d)  
+
+    nearest_neighbors, nearest_vectors = knn.knn_search(query_vectors)  
     print("*"*20,"The functional test of task2","*"*20)
     for i in range(len(query_vectors)):
-        print(f"查询向量 {i} 的最近邻索引:", nearest_neighbors[i])
-        print(f"查询向量 {i} 的最近邻向量:", nearest_vectors[i])
+        print(f"The nearest neighbor indices of vector {i}:", nearest_neighbors[i])
+        print(f"The nearest neighbor vectors of vector {i}:", nearest_vectors[i])
                
-    # 验证返回的最近邻索引和向量的形状
-    assert len(nearest_neighbors) == len(query_vectors), "最近邻索引的数量不正确"
-    assert len(nearest_vectors) == len(query_vectors), "最近邻向量的数量不正确"
+    
+    assert len(nearest_neighbors) == len(query_vectors), "Incorrect number of nearest neighbor indices!"
+    assert len(nearest_vectors) == len(query_vectors), "Incorrect number of nearest neighbor vectors!"
 
     for i in range(len(query_vectors)):
-        # 检查返回的最近邻索引数量
-        if len(nearest_neighbors[i]) < k:
-            print(f"警告: 查询向量 {i} 的最近邻索引数量少于 k ({k})，实际数量为 {len(nearest_neighbors[i])}")
-        else:
-            assert len(nearest_neighbors[i]) == k, f"查询向量 {i} 的最近邻索引数量不正确"
+        assert len(nearest_neighbors[i]) == k, f"Incorrect number of nearest neighbor indices for query vector {i}"
         
-        assert nearest_vectors[i].shape[1] == d, f"查询向量 {i} 的最近邻向量维度不正确"
+        assert nearest_vectors[i].shape[1] == d, f"The nearest neighbor vector dimensions for query vector {i} are incorrect"
 
-    print("功能测试通过！")
+    print("Functional test passed!")
     print("*"*70) 
 
 
-def test_knn_performance():
+def test_knn_performance(n, d, k):
     """
-    性能测试：测量 KNN 查询的执行时间
+    Performance test: measure and compare the time it takes HNSW and Kmeans to query the knn of the same set of vectors
     """
-    np.random.seed(123)  # 设置随机种子以确保可重复性
-    n = 10000  # 数据库中的向量数量
-    d = 10     # 向量维度
-    k = 5      # 最近邻数量
+    np.random.seed(123)  
 
-    knn = KNN(n=n, d=d, k=k)  # 创建 KNN 实例
-    query_vectors = np.random.rand(100, d)  # 随机生成 100 个查询向量
-
-    start_time = time.time()  # 记录开始时间
-    nearest_neighbors, nearest_vectors = knn.knn_search(query_vectors)  # 查询每个向量的最近邻
-    end_time = time.time()  # 记录结束时间
-
-    print(f"性能测试：查询 100 个向量的最近邻耗时 {end_time - start_time:.4f} 秒")
+    knn = KNN(n=n, d=d, k=k)  
+    query_vectors = np.random.rand(50, d)  
+    # HNSW
+    start_time_1 = time.time()  
+    nearest_neighbors_1, nearest_vectors_1 = knn.knn_search(query_vectors)  
+    end_time_1 = time.time()  
+    
+    print("*"*20,"The perfomance test of task2","*"*20)
+    print(f"HNSW query for the nearest neighbors of 100 vectors takes: {end_time_1 - start_time_1:.4f} seconds")
+    # Kmeans
+    start_time_2 = time.time()  
+    nearest_neighbors_2, nearest_vectors_2 = knn.kmeans_knn_search(query_vectors)  
+    end_time_2 = time.time()
+    print(f"Kmeans query for the nearest neighbors of 100 vectors takes: {end_time_2 - start_time_2:.4f} seconds")
     print("*"*70)
 
 # 示例用法
 if __name__ == "__main__":
+    n = 1000
+    dim = 10 
+    k = 3
     # task1
-    # pairwise_distances_test(10)
+    pairwise_distances_test(dim)
     # task2
-    test_knn_functionality()
+    test_knn_functionality(n,dim,k)
     
-    test_knn_performance()
+    test_knn_performance(n,dim,k)
