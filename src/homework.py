@@ -1,5 +1,8 @@
-
 import numpy as np
+from sklearn.cluster import KMeans
+from kneed import KneeLocator
+import warnings
+warnings.filterwarnings('ignore')
 
 def pairwise_distances(A, B):
     '''
@@ -40,42 +43,83 @@ def pairwise_distances_test(d):
 
 
 class KNN:
-    def __init__(self, n, d):
+    def __init__(self, n, d, k=1):
         """
-        初始化 KNN 类
-        :param n: 向量数量
-        :param d: 向量维度
+        Initialize KNN class
+        :param n: number of vectors
+        :param d: vector dimension
         """
         self.n = n
         self.d = d
-        self.data = self._generate_vectors()
+        self.k = k
+        self.data = self.generate_vectors()
 
-    def _generate_vectors(self):
+    def generate_vectors(self, n_clusters=4):
         """
-        随机生成 n 个 d 维向量
+        使用多元正态分布生成 n 个 d 维向量
+        :param n_clusters: 聚类数量
         :return: 生成的向量
         """
-        return np.random.rand(self.n, self.d)
+        means = np.random.rand(n_clusters, self.d)  # 随机生成聚类中心
+        covariances = [np.eye(self.d) for _ in range(n_clusters)]  # 使用单位矩阵作为协方差矩阵
+        
+        vectors = []
+        for i in range(self.n):
+            cluster = np.random.choice(n_clusters)  # 随机选择一个聚类
+            vector = np.random.multivariate_normal(means[cluster], covariances[cluster])  # 生成多元正态分布向量
+            vectors.append(vector)
 
-    def querB(self, querB_vector, k=1):
+        return np.array(vectors)
+
+    def get_best_k(self, vectors):
+        sse = []
+        k_values = range(2, int(np.log2(len(vectors))) + 1)
+        
+        for k in k_values:
+            kmeans = KMeans(n_clusters=k)
+            kmeans.fit(vectors)
+            sse.append(kmeans.inertia_)
+        
+        knee_locator = KneeLocator(k_values, sse, curve='convex', direction='decreasing')
+        return knee_locator.elbow
+
+    def cluster(self, vectors):
+        best_k = self.get_best_k(vectors)
+        kmeans = KMeans(n_clusters=best_k)
+        kmeans.fit(vectors)
+        return kmeans.labels_
+
+
+    def knn_search(self, query_vectors):
         """
-        查询最近邻
-        :param querB_vector: 查询向量
-        :param k: 最近邻数量
-        :return: 最近邻的索引
+        针对一组查询向量返回最近邻
+        :param query_vectors: 查询向量，形状为 (m, d)
+        :return: 最近邻的索引和向量
         """
-        distances = pairwise_distances(self.data, querB_vector.reshape(1, -1))
-        nearest_indices = np.argsort(distances.flatten())[:k]
-        nearest_vectors = self.data[nearest_indices]  # 获取最近邻向量
-        return nearest_indices, nearest_vectors
+        nearest_indices_list = []
+        nearest_vectors_list = []
+
+        for query_vector in query_vectors:
+            distances = np.array([pairwise_distances(self.data[i], query_vector) for i in range(self.n)])  # 计算距离
+            nearest_indices = np.argsort(distances)[:self.k]  # 获取最近邻索引
+            nearest_vectors = self.data[nearest_indices]  # 获取最近邻向量
+            
+            nearest_indices_list.append(nearest_indices)
+            nearest_vectors_list.append(nearest_vectors)
+
+        return nearest_indices_list, nearest_vectors_list
+    
+    
 
 # 示例用法
 if __name__ == "__main__":
-    # knn = KNN(n=100, d=10)  # 生成 100 个 10 维向量
-    # querB_vector = np.random.rand(10)  # 随机生成一个查询向量
-    # print("查询向量:", querB_vector)
-    # nearest_neighbors, nearest_vectors = knn.querB(querB_vector, k=5)  # 查询 5 个最近邻
-    # print("最近邻索引:", nearest_neighbors)
-    # print("最近邻向量:", nearest_vectors)
-    
-    pairwise_distances_test(10)
+    # task1
+    # pairwise_distances_test(10)
+    # task2
+    knn = KNN(n=100, d=10, k=3)  # 创建 KNN 实例，设置 k=3
+    query_vectors = np.random.rand(5, 10)  # 随机生成 5 个查询向量
+    nearest_neighbors, nearest_vectors = knn.knn_search(query_vectors)  # 查询每个向量的最近邻
+
+    for i in range(len(query_vectors)):
+        print(f"查询向量 {i} 的最近邻索引:", nearest_neighbors[i])
+        print(f"查询向量 {i} 的最近邻向量:", nearest_vectors[i])
