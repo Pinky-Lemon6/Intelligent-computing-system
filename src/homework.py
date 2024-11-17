@@ -4,6 +4,8 @@ from kneed import KneeLocator
 import warnings
 warnings.filterwarnings('ignore')
 import hnswlib
+import time
+
 
 def pairwise_distances(A, B):
     '''
@@ -40,7 +42,6 @@ def pairwise_distances_test(d):
     print(f"distances_numpy: {distances_numpy}")
     print(f"error: {error}")
     print("*"*70) 
-
 
 
 class KNN:
@@ -93,24 +94,72 @@ class KNN:
 
         for query_vector in query_vectors:
             indices, distances = self.index.knn_query(query_vector, k=self.k)  # 使用 HNSW 查询最近邻
-            nearest_vectors = self.data[indices]  # 获取最近邻向量
+            nearest_vectors = self.data[indices.flatten()]  # 获取最近邻向量
             
-            nearest_indices_list.append(indices)
+            nearest_indices_list.append(indices.flatten())
             nearest_vectors_list.append(nearest_vectors)
 
         return nearest_indices_list, nearest_vectors_list
     
-    
+def test_knn_functionality():
+    """
+    功能测试：验证 KNN 类的正确性
+    """
+    np.random.seed(123)  # 设置随机种子以确保可重复性
+    n = 100  # 数据库中的向量数量
+    d = 10   # 向量维度
+    k = 3    # 最近邻数量
+
+    knn = KNN(n=n, d=d, k=k)  # 创建 KNN 实例
+    query_vectors = np.random.rand(5, d)  # 随机生成 5 个查询向量
+
+    nearest_neighbors, nearest_vectors = knn.knn_search(query_vectors)  # 查询每个向量的最近邻
+    print("*"*20,"The functional test of task2","*"*20)
+    for i in range(len(query_vectors)):
+        print(f"查询向量 {i} 的最近邻索引:", nearest_neighbors[i])
+        print(f"查询向量 {i} 的最近邻向量:", nearest_vectors[i])
+               
+    # 验证返回的最近邻索引和向量的形状
+    assert len(nearest_neighbors) == len(query_vectors), "最近邻索引的数量不正确"
+    assert len(nearest_vectors) == len(query_vectors), "最近邻向量的数量不正确"
+
+    for i in range(len(query_vectors)):
+        # 检查返回的最近邻索引数量
+        if len(nearest_neighbors[i]) < k:
+            print(f"警告: 查询向量 {i} 的最近邻索引数量少于 k ({k})，实际数量为 {len(nearest_neighbors[i])}")
+        else:
+            assert len(nearest_neighbors[i]) == k, f"查询向量 {i} 的最近邻索引数量不正确"
+        
+        assert nearest_vectors[i].shape[1] == d, f"查询向量 {i} 的最近邻向量维度不正确"
+
+    print("功能测试通过！")
+    print("*"*70) 
+
+
+def test_knn_performance():
+    """
+    性能测试：测量 KNN 查询的执行时间
+    """
+    np.random.seed(123)  # 设置随机种子以确保可重复性
+    n = 10000  # 数据库中的向量数量
+    d = 10     # 向量维度
+    k = 5      # 最近邻数量
+
+    knn = KNN(n=n, d=d, k=k)  # 创建 KNN 实例
+    query_vectors = np.random.rand(100, d)  # 随机生成 100 个查询向量
+
+    start_time = time.time()  # 记录开始时间
+    nearest_neighbors, nearest_vectors = knn.knn_search(query_vectors)  # 查询每个向量的最近邻
+    end_time = time.time()  # 记录结束时间
+
+    print(f"性能测试：查询 100 个向量的最近邻耗时 {end_time - start_time:.4f} 秒")
+    print("*"*70)
 
 # 示例用法
 if __name__ == "__main__":
     # task1
     # pairwise_distances_test(10)
     # task2
-    knn = KNN(n=100, d=10, k=3)  # 创建 KNN 实例，设置 k=3
-    query_vectors = np.random.rand(5, 10)  # 随机生成 5 个查询向量
-    nearest_neighbors, nearest_vectors = knn.knn_search(query_vectors)  # 查询每个向量的最近邻
-
-    for i in range(len(query_vectors)):
-        print(f"查询向量 {i} 的最近邻索引:", nearest_neighbors[i])
-        print(f"查询向量 {i} 的最近邻向量:", nearest_vectors[i])
+    test_knn_functionality()
+    
+    test_knn_performance()
